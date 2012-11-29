@@ -166,6 +166,7 @@ class IssueLinkingServlet(config: Config) extends HttpServlet {
     import scala.collection.JavaConversions._
     for { h <- req.getHeaderNames } println("%s: %s".format(h, req.getHeaders(h).mkString(",")))
     for { p <- req.getParameterMap } println("%s=%s".format(p._1, p._2))
+    println(Source.fromInputStream(req.getInputStream).mkString("\n"))
 
     parse(req) match {
       case Failure(InvalidKey) ⇒ resp.sendError(401)
