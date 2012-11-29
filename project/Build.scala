@@ -35,7 +35,7 @@ object MarvinBuild extends Build {
         )
 
   lazy val deploySettings: Seq[Setting[_]] =
-    heroic.Plugin.heroicSettings ++
+//     heroic.Plugin.heroicSettings ++
     List( mainClass := Some("com.atlassian.ecosystem.marvin.Main")
 //         , heroJavaOptions := 
         )
