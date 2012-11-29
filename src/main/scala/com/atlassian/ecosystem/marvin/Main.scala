@@ -163,6 +163,9 @@ class IssueLinkingServlet(config: Config) extends HttpServlet {
       case _ ⇒ InvalidKey.fail
     }
   override def doPost(req: HttpServletRequest , resp: HttpServletResponse): Unit = {
+    println("private key: %s == %s".format(req.getParameter("private_key"), config.issueLinkToken))
+    println("payload: %s".format(req.getParameter("payload")))
+
     parse(req) match {
       case Failure(InvalidKey) ⇒ resp.sendError(401)
       case Failure(ParseError(err)) ⇒ resp.sendError(400, err); println(err)
