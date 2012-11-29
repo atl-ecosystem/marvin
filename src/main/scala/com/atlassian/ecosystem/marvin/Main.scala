@@ -163,8 +163,9 @@ class IssueLinkingServlet(config: Config) extends HttpServlet {
       case _ ⇒ InvalidKey.fail
     }
   override def doPost(req: HttpServletRequest , resp: HttpServletResponse): Unit = {
-    println("private key: %s == %s".format(req.getParameter("private_key"), config.issueLinkToken))
-    println("payload: %s".format(req.getParameter("payload")))
+    import scala.collection.JavaConversions._
+    for { h <- req.getHeaderNames } println("%s: %s".format(h, req.getHeaders(h).mkString(",")))
+    for { p <- req.getParameterMap } println("%s=%s".format(p._1, p._2))
 
     parse(req) match {
       case Failure(InvalidKey) ⇒ resp.sendError(401)
