@@ -15,6 +15,10 @@ import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.handler.{ContextHandler, ResourceHandler, HandlerList}
 import org.eclipse.jetty.servlet.{ServletHolder, ServletContextHandler}
 
+import org.apache.commons.fileupload._
+import org.apache.commons.fileupload.disk._
+import org.apache.commons.fileupload.servlet._
+
 import scala.io._
 
 import javax.servlet.http._
@@ -152,22 +156,27 @@ case object InvalidKey extends HipchatError
 sealed case class ParseError(err: String) extends HipchatError
 
 class IssueLinkingServlet(config: Config) extends HttpServlet {
-  def parse(req: HttpServletRequest): Validation[HipchatError, WebHookMessage] =
-    Option(req.getParameter("private_key")) match {
+  def multipartParser = new ServletFileUpload(new DiskFileItemFactory())
+  def parts(req: HttpServletRequest) = {
+    import scala.collection.JavaConversions
+    val fis = JavaConversions.asScalaBuffer(multipartParser.parseRequest(req).asInstanceOf[java.util.List[FileItem]]).toList 
+    fis.flatMap(fi ⇒ if (fi.isFormField) List(fi.getFieldName → fi.getString) else Nil).toMap
+  }
+  def parsePayload(payload: String) = {
+    val res = payload.parseIgnoreErrorType( _.decode[WebHookMessage].map(_.success)
+                                          , s ⇒ DecodeResult(s.fail)
+                                          )
+    res.toValidation.flatMap(identity).swap.map(ParseError(_)).swap
+  }
+  def parse(req: HttpServletRequest): Validation[HipchatError, WebHookMessage] = {
+    val ps = parts(req)
+    ps.get("private_key") match {
       case Some(k) if k == config.issueLinkToken ⇒
-        val in = req.getParameter("payload")
-        val res = in.parseIgnoreErrorType( _.decode[WebHookMessage].map(_.success)
-                                         , s ⇒ DecodeResult(s.fail)
-                                        )
-        res.toValidation.flatMap(identity).swap.map(ParseError(_)).swap
+        ps.get("payload").map(parsePayload).getOrElse(ParseError("No payload").fail)
       case _ ⇒ InvalidKey.fail
     }
+  }
   override def doPost(req: HttpServletRequest , resp: HttpServletResponse): Unit = {
-    import scala.collection.JavaConversions._
-    for { h <- req.getHeaderNames } println("%s: %s".format(h, req.getHeaders(h).mkString(",")))
-    for { p <- req.getParameterMap } println("%s=%s".format(p._1, p._2))
-    println(Source.fromInputStream(req.getInputStream).mkString(""))
-
     parse(req) match {
       case Failure(InvalidKey) ⇒ resp.sendError(401)
       case Failure(ParseError(err)) ⇒ resp.sendError(400, err); println(err)
