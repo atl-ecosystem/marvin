@@ -1,6 +1,8 @@
 import sbt._
 import Keys._
 
+import com.typesafe.sbt.SbtStartScript
+
 object MarvinBuild extends Build {
   lazy val root = 
     Project( id = "marvin"
@@ -35,9 +37,8 @@ object MarvinBuild extends Build {
         )
 
   lazy val deploySettings: Seq[Setting[_]] =
-//     heroic.Plugin.heroicSettings ++
+    SbtStartScript.startScriptForClassesSettings ++
     List( mainClass := Some("com.atlassian.ecosystem.marvin.Main")
-//         , heroJavaOptions := 
         )
 
 }
