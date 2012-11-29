@@ -50,7 +50,7 @@ object Main {
   def createServer(config: Config): IO[Server] = IO {
     val servlets = new ServletContextHandler
     servlets.setContextPath("/")
-    servlets.addServlet(new ServletHolder(IssueLinkingServlet), "/issue-linker")
+    servlets.addServlet(new ServletHolder(new IssueLinkingServlet(config)), "/issue-linker")
 
     val handlers = new HandlerList
     handlers.setHandlers(Array(servlets))
@@ -147,14 +147,25 @@ object Message {
   implicit lazy val EncodePerson: EncodeJson[Message] = EncodeJson(messageToJson, "Message")
 }
 
-object IssueLinkingServlet extends HttpServlet {
-  def parse(req: HttpServletRequest): Validation[String, WebHookMessage] = {
-    val in = Source.fromInputStream(req.getInputStream).mkString("")
-    in.parseIgnoreErrorType(_.decode[WebHookMessage].map(_.success), s ⇒ DecodeResult(s.fail)).toValidation.flatMap(identity) 
-  }
+sealed trait HipchatError
+case object InvalidKey extends HipchatError
+sealed case class ParseError(err: String) extends HipchatError
+
+class IssueLinkingServlet(config: Config) extends HttpServlet {
+  def parse(req: HttpServletRequest): Validation[HipchatError, WebHookMessage] =
+    Option(req.getParameter("private_key")) match {
+      case Some(k) if k == config.issueLinkToken ⇒
+        val in = req.getParameter("payload")
+        val res = in.parseIgnoreErrorType( _.decode[WebHookMessage].map(_.success)
+                                         , s ⇒ DecodeResult(s.fail)
+                                        )
+        res.toValidation.flatMap(identity).swap.map(ParseError(_)).swap
+      case _ ⇒ InvalidKey.fail
+    }
   override def doPost(req: HttpServletRequest , resp: HttpServletResponse): Unit = {
     parse(req) match {
-      case Failure(err) ⇒ resp.sendError(400, err); println(err)
+      case Failure(InvalidKey) ⇒ resp.sendError(401)
+      case Failure(ParseError(err)) ⇒ resp.sendError(400, err); println(err)
       case Success(in) ⇒
         resp.setContentType("application/json")
         val out = Message( roomId = in.room.id
