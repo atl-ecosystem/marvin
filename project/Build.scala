@@ -16,6 +16,7 @@ object MarvinBuild extends Build {
         , scalaVersion := "2.9.2"
         , scalacOptions ++= List("-unchecked", "-deprecation", "-Ydependent-method-types", "-Ywarn-value-discard")
         , libraryDependencies := dependencies
+        , resolvers ++= resolvers_
         )
 
   object versions {
@@ -23,10 +24,12 @@ object MarvinBuild extends Build {
     val httpclient = "4.2.1"
     val jetty = "8.0.4.v20111024"
     val scalaz = "7.0.0-M4"
+    val argonaut = "4.0"
   }
 
   lazy val dependencies =
-    List( "commons-codec" % "commons-codec" % "1.6" // for dispatch"
+    List( "com.ephox" %% "argonaut" % versions.argonaut intransitive()
+        , "commons-codec" % "commons-codec" % "1.6" // for dispatch"
         , "net.databinder.dispatch" %% "dispatch-core" % versions.dispatch intransitive()
         , "org.apache.httpcomponents" % "httpcore" % versions.httpclient intransitive()
         , "org.apache.httpcomponents" % "httpclient" % versions.httpclient intransitive()
@@ -34,6 +37,11 @@ object MarvinBuild extends Build {
         , "org.eclipse.jetty" % "jetty-plus" % versions.jetty
         , "org.scalaz" %% "scalaz-core" % versions.scalaz
         , "org.scalaz" %% "scalaz-effect" % versions.scalaz
+        )
+
+  lazy val resolvers_ = 
+    List( "mth.io snapshots"  at "http://repo.mth.io/snapshots"
+        , "mth.io releases"  at "http://repo.mth.io/releases"
         )
 
   lazy val deploySettings: Seq[Setting[_]] =
