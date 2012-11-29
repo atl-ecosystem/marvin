@@ -73,43 +73,46 @@ object Main {
 
 case class Room(id: Int, name: String)
 object Room {
+  import JsonDecoders._
   implicit lazy val decodeJsonRoom: DecodeJson[Room] =
-    DecodeJson(j => j.array match {
-      case Some(id::n::Nil) =>
-        for {
-          id_ <- implicitly[DecodeJson[Int]].apply(id)
-          n_ <- implicitly[DecodeJson[String]].apply(n)
-        } yield Room(id_, n_)
-      case _ => DecodeResult.decodeError(j, "Room")
-    })
+    DecodeJson(decodeJsonObject(_)(jobj ⇒
+      ( reqObjField[Int](jobj, "id")      |@|
+        reqObjField[String](jobj, "name")
+      )(Room.apply)
+    ))
 }
 case class Sender(id: Int, name: String, mention: String)
 object Sender {
+  import JsonDecoders._
   implicit lazy val decodeJsonSender: DecodeJson[Sender] =
-    DecodeJson(j => j.array match {
-      case Some(id::n::m::Nil) =>
-        for {
-          id_ <- implicitly[DecodeJson[Int]].apply(id)
-          n_ <- implicitly[DecodeJson[String]].apply(n)
-          m_ <- implicitly[DecodeJson[String]].apply(m)
-        } yield Sender(id_, n_, m_)
-      case _ => DecodeResult.decodeError(j, "Sender")
-    })
+    DecodeJson(decodeJsonObject(_)(jobj ⇒
+      ( reqObjField[Int](jobj, "id")         |@|
+        reqObjField[String](jobj, "name")    |@|
+        reqObjField[String](jobj, "mention")
+      )(Sender.apply)
+    ))
 }
+
+object JsonDecoders {
+  def decodeJsonObject[A](j: Json)(decode: JsonObject ⇒ DecodeResult[A]): DecodeResult[A] =
+    j.obj.map(decode).getOrElse(DecodeResult.decodeError(j, "not a json object"))
+
+  def reqObjField[A](jobj: JsonObject, name: JsonField)(implicit A: DecodeJson[A]): DecodeResult[A] =
+    jobj(name).map(A.apply).getOrElse(DecodeResult.decodeError(jObject(jobj), "missing '" + name + "' field"))
+}
+
 case class WebHookMessage(regex: String, matches: List[String], message: String, room: Room, sender: Sender)
 object WebHookMessage {
+  import JsonDecoders._
   implicit lazy val decodeJsonWebHookMessage: DecodeJson[WebHookMessage] =
-    DecodeJson(j => j.array match {
-      case Some(r::ms::msg::rm::s::Nil) =>
-        for {
-          r_  <- implicitly[DecodeJson[String]].apply(r)
-          ms_ <- implicitly[DecodeJson[List[String]]].apply(ms)
-          msg_ <- implicitly[DecodeJson[String]].apply(msg)
-          rm_ <- implicitly[DecodeJson[Room]].apply(rm)
-          s_ <- implicitly[DecodeJson[Sender]].apply(s)
-        } yield WebHookMessage(r_, ms_, msg_, rm_, s_)
-      case _ => DecodeResult.decodeError(j, "WebHookMessage")
-    })
+    DecodeJson(decodeJsonObject(_)(jobj ⇒
+      ( reqObjField[String](jobj, "regex")            |@|
+        reqObjField[List[String]](jobj, "matches")    |@|
+        reqObjField[String](jobj, "message")          |@|
+        reqObjField[Room](jobj, "room")               |@|
+        reqObjField[Sender](jobj, "sender")
+      )(WebHookMessage.apply)
+    ))
 }
 sealed trait MessageFormat
 object MessageFormat {
@@ -179,7 +182,7 @@ class IssueLinkingServlet(config: Config) extends HttpServlet {
   override def doPost(req: HttpServletRequest , resp: HttpServletResponse): Unit = {
     parse(req) match {
       case Failure(InvalidKey) ⇒ resp.sendError(401)
-      case Failure(ParseError(err)) ⇒ resp.sendError(400, err); println(err)
+      case Failure(ParseError(err)) ⇒ resp.sendError(400, err); println("Failed during parsing: " + err)
       case Success(in) ⇒
         resp.setContentType("application/json")
         val out = Message( roomId = in.room.id
