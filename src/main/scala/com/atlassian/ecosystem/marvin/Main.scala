@@ -94,6 +94,12 @@ object Sender {
 }
 
 object JsonDecoders {
+  implicit lazy val IntDecodeJson: DecodeJson[Int] =
+    DecodeJson.decodej({
+      case n: JsonNumber => Some(n.toInt)
+      case j => j.string flatMap (s => try { Some(s.toInt) } catch { case _ => None })
+    }, "Int")
+
   def decodeJsonObject[A](j: Json)(decode: JsonObject ⇒ DecodeResult[A]): DecodeResult[A] =
     j.obj.map(decode).getOrElse(DecodeResult.decodeError(j, "not a json object"))
 
@@ -105,7 +111,7 @@ object JsonDecoders {
         case Right(a)  ⇒ DecodeResult(a)
       }
     }
-   jobj(name).map(decode).getOrElse(DecodeResult.decodeError(jObject(jobj), "missing '%s.%s' field".format(oname, name)))
+    jobj(name).map(decode).getOrElse(DecodeResult.decodeError(jObject(jobj), "missing '%s.%s' field".format(oname, name)))
   }
 }
 
