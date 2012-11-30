@@ -71,28 +71,6 @@ object Main {
 }
 
 
-case class Room(id: Int, name: String)
-object Room {
-  import JsonDecoders._
-  implicit lazy val decodeJsonRoom: DecodeJson[Room] =
-    DecodeJson(decodeJsonObject(_)(jobj ⇒
-      ( reqObjField[Int](jobj, "Room", "id")      |@|
-        reqObjField[String](jobj, "Room", "pretty_name")
-      )(Room.apply)
-    ))
-}
-case class Sender(id: Int, name: String, mention: String)
-object Sender {
-  import JsonDecoders._
-  implicit lazy val decodeJsonSender: DecodeJson[Sender] =
-    DecodeJson(decodeJsonObject(_)(jobj ⇒
-      ( reqObjField[Int](jobj, "Sender", "id")         |@|
-        reqObjField[String](jobj, "Sender", "name")    |@|
-        reqObjField[String](jobj, "Sender", "mention_name")
-      )(Sender.apply)
-    ))
-}
-
 object JsonDecoders {
   implicit lazy val IntDecodeJson: DecodeJson[Int] =
     DecodeJson.decodej(j => j.number match {
@@ -113,6 +91,33 @@ object JsonDecoders {
     }
     jobj(name).map(decode).getOrElse(DecodeResult.decodeError(jObject(jobj), "missing '%s.%s' field".format(oname, name)))
   }
+}
+
+object JsonEncoders {
+  def jsonObject(fs: (JsonField, Json)*): Json =
+    jObject(fs.foldLeft(JsonObject.empty)((j, f) ⇒ j + (f._1, f._2)))
+}
+
+case class Room(id: Int, name: String)
+object Room {
+  import JsonDecoders._
+  implicit lazy val decodeJsonRoom: DecodeJson[Room] =
+    DecodeJson(decodeJsonObject(_)(jobj ⇒
+      ( reqObjField[Int](jobj, "Room", "id")      |@|
+        reqObjField[String](jobj, "Room", "pretty_name")
+      )(Room.apply)
+    ))
+}
+case class Sender(id: Int, name: String, mention: String)
+object Sender {
+  import JsonDecoders._
+  implicit lazy val decodeJsonSender: DecodeJson[Sender] =
+    DecodeJson(decodeJsonObject(_)(jobj ⇒
+      ( reqObjField[Int](jobj, "Sender", "id")         |@|
+        reqObjField[String](jobj, "Sender", "name")    |@|
+        reqObjField[String](jobj, "Sender", "mention_name")
+      )(Sender.apply)
+    ))
 }
 
 case class WebHookMessage(regex: String, matches: List[String], message: String, room: Room, sender: Sender)
@@ -154,17 +159,18 @@ case class Message
   , message: String
   , color: MessageColor = MessageColor.Yellow
   , format: MessageFormat = MessageFormat.Text
+  , notifyR: Boolean = false
   )
 object Message {
-  private def messageToJson(msg: Message) = msg match {
-    case Message(r, f, m, c, fmt) => 
-      jArray(List( implicitly[EncodeJson[Int]].apply(r)
-                 , implicitly[EncodeJson[String]].apply(f)
-                 , implicitly[EncodeJson[String]].apply(m)
-                 , implicitly[EncodeJson[MessageColor]].apply(c)
-                 , implicitly[EncodeJson[MessageFormat]].apply(fmt)
-                 ))
-  }
+  import JsonEncoders._
+  private def messageToJson(msg: Message) =
+    jsonObject( "room_id" → implicitly[EncodeJson[Int]].apply(msg.roomId)
+              , "from"    → implicitly[EncodeJson[String]].apply(msg.from)
+              , "message" → implicitly[EncodeJson[String]].apply(msg.message)
+              , "color"   → implicitly[EncodeJson[MessageColor]].apply(msg.color)
+              , "format"  → implicitly[EncodeJson[MessageFormat]].apply(msg.format)
+              , "notify"  → implicitly[EncodeJson[Int]].apply(if (msg.notifyR) 1 else 0)
+              )
   implicit lazy val EncodePerson: EncodeJson[Message] = EncodeJson(messageToJson, "Message")
 }
 
@@ -203,6 +209,7 @@ class IssueLinkingServlet(config: Config) extends HttpServlet {
                          , from = "marvin"
                          , message = in.message
                          )
+        println("sending response\n" + implicitly[EncodeJson[Message]].apply(out).toString)
         resp.getWriter.write(implicitly[EncodeJson[Message]].apply(out).toString)
         resp.getWriter.flush
     }
