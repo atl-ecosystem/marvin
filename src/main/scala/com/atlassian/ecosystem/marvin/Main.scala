@@ -191,7 +191,7 @@ class IssueLinkingServlet(config: Config) extends HttpServlet {
         resp.setContentType("application/json")
         val out = Message( roomId = in.room.id
                          , from = "marvin"
-                         , message = in.message
+                         , message = links(in.message).mkString("\n")
                          )
         resp.getWriter.write(implicitly[EncodeJson[Message]].apply(out).toString)
         resp.getWriter.flush
