@@ -23,7 +23,7 @@ object MarvinBuild extends Build {
     val dispatch = "0.9.4"
     val httpclient = "4.2.1"
     val jetty = "8.0.4.v20111024"
-    val scalaz = "7.0.0-M4"
+    val scalaz = "7.0.0-M1"
     val argonaut = "4.0"
   }
 

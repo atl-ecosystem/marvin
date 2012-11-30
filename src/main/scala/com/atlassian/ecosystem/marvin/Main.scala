@@ -32,18 +32,18 @@ object Main {
     getConfig >>= createServer >>= start
   
   type ConfigParseResult[A] = ValidationNEL[String, A]
-  implicit val ApplyIOConfigParseResult = Apply[IO].compose[ConfigParseResult]
   def getConfig: IO[Config] =
-    ( getPort         |@|
-      getHipchatToken |@|
-      getIssueLinkToken
-    )(Config.apply) >>= (_.fold(succ = _.point[IO], fail = errs ⇒ throwIO(new RuntimeException(errs.list.mkString))))
+    Apply[IO].compose[ConfigParseResult].map3( getPort
+                                             , getHipchatToken
+                                             , getIssueLinkToken
+                                             )(Config.apply) >>= 
+      (_.fold(success = _.point[IO], failure = errs ⇒ throwIO(new RuntimeException(errs.list.mkString))))
 
   def getEnv(name: String): IO[Option[String]] = IO(Option(System.getenv(name)))
 
   def getPort: IO[ConfigParseResult[Int]] =
     getEnv("PORT") map (s ⇒
-      s.getOrElse("8080").parseInt.fold(succ = _.successNel, fail = _ ⇒ "Invalid port '%s'".format(s).failNel))
+      s.getOrElse("8080").parseInt.fold(success = _.successNel, failure = _ ⇒ "Invalid port '%s'".format(s).failNel))
 
   def getHipchatToken: IO[ConfigParseResult[String]] =
     getEnv("HIPCHAT_TOKEN") map (_.fold(some = _.successNel, none = "Missing env var 'HIPCHAT_TOKEN'".failNel))
@@ -169,7 +169,7 @@ class IssueLinkingServlet(config: Config) extends HttpServlet {
     val res = payload.parseIgnoreErrorType( _.decode[WebHookMessage].map(_.success)
                                           , s ⇒ DecodeResult(s.fail)
                                           )
-    res.toValidation.flatMap(identity).swap.map(ParseError(_)).swap
+    res.toValidation.flatMap(identity).fail.map(ParseError(_)).validation
   }
   def parse(req: HttpServletRequest): Validation[HipchatError, WebHookMessage] = {
     val ps = parts(req)
