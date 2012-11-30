@@ -101,17 +101,18 @@ sealed case class ParseError(err: String) extends HipchatError
 object Hipchat {
   import dispatch._
   val message = "https://api.hipchat.com/v1/rooms/message"
-  def sendMessage(key: String, msg: Message) = {
-    Http(url(message) << Map( "room_id"     → msg.roomId.shows
-                            , "from"        → msg.from
-                            , "message"     → msg.message
-                            , "color"       → msg.color.shows
-                            , "message_format" → msg.format.shows
-                            , "notify"      → (if (msg.notifyR) 1 else 0).shows
-                            )) foreach {res =>
-                           println(res.getStatusCode)
-                           println(res.getResponseBody)
-                            }
+  def sendMessage(token: String, msg: Message) = {
+    def formParams = Map( "room_id"     → msg.roomId.shows
+                        , "from"        → msg.from
+                        , "message"     → msg.message
+                        , "color"       → msg.color.shows
+                        , "message_format" → msg.format.shows
+                        , "notify"      → (if (msg.notifyR) 1 else 0).shows
+                        )
+    Http(url(message) <<? Map("auth_token" → token) << formParams) foreach {res =>
+      println(res.getStatusCode)
+      println(res.getResponseBody)
+    }
 
   }
 }
