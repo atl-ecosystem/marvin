@@ -8,7 +8,7 @@ import javax.servlet.http._
 object RaiseIssueServlet {
   val usage = "raise <issue-type> <issue-summary> in <project-key> [reported by <user>] [assign to (<user>|me)] [schedule for <version>]"
   def apply(config: Config): HttpServlet = WebHookServlet(config.raiseIssueKey) { msg ⇒
-    def parse = Parser.parse(msg.message.drop(1))
+    def parse = Parser.parse(msg.message.trim.drop(1))
     def addUsage(v: Validation[String, RaiseIssue]) =
       v.fold( success = _.toString
             , failure = err ⇒ "Parsing failed: %s.  Usage: %s".format(err, usage)

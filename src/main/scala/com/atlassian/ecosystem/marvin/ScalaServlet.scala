@@ -13,7 +13,9 @@ object ScalaReplServlet {
     val interpreters = {
       var is = scala.collection.mutable.Map[Room, ScalaInterpreter]()
       Actor[WebHookMessage] { msg ⇒
+        println("received message '%s'".format(msg))
         val i = is.getOrElseUpdate(msg.room, new ScalaInterpreter(config.hipchatToken, msg.room))
+        println("got interpreter for room '%s'".format(msg.room))
         i.interpret(msg.message.trim.drop(1))
       }
     }
@@ -26,6 +28,7 @@ object ScalaReplServlet {
 }
 
 private[this] class ScalaInterpreter(key: String, room: Room) {
+  println("creating scala interpreter for room '%s'".format(room))
   import scala.tools.nsc.interpreter.{IMain}
   import scala.tools.nsc.interpreter.Results._
 
@@ -39,6 +42,7 @@ private[this] class ScalaInterpreter(key: String, room: Room) {
   implicit val SingleThreadedStrategy = Strategy.Executor(Executors.newSingleThreadExecutor)
 
   private[this] lazy val si = {
+    println("building IMain instance")
     val settings = new scala.tools.nsc.Settings(null)
     settings.usejavacp.value = true
     settings.deprecation.value = true
@@ -54,6 +58,7 @@ private[this] class ScalaInterpreter(key: String, room: Room) {
     try {
       System setOut conOutStream
       System setErr conOutStream
+      println("interpreting '%s'".format(code))
       si.interpret(code)
     } finally {
       System setOut stdOut
@@ -64,9 +69,9 @@ private[this] class ScalaInterpreter(key: String, room: Room) {
 
   private[this] val actor = Actor[String] { code ⇒
     Hipchat.sendMessage(key, Left(room.id), interpret_(code) match {
-      case Success => conOut.toString.replaceAll("(?m:^res[0-9]+: )", "") // + "\n" + iout.toString.replaceAll("(?m:^res[0-9]+: )", "")
-      case Error => conOut.toString.replaceAll("^<console>:[0-9]+: ", "")
-      case Incomplete => "error: unexpected EOF found, incomplete expression"
+      case Success => println("successfully interpreted"); conOut.toString.replaceAll("(?m:^res[0-9]+: )", "") // + "\n" + iout.toString.replaceAll("(?m:^res[0-9]+: )", "")
+      case Error => println("error interpreting"); conOut.toString.replaceAll("^<console>:[0-9]+: ", "")
+      case Incomplete => println("incomplete expression"); "error: unexpected EOF found, incomplete expression"
     })
   }
 }
