@@ -121,9 +121,7 @@ object Hipchat {
                         , "message_format" → msg.format.shows
                         , "notify"      → (if (msg.notifyR) 1 else 0).shows
                         )
-    Http(url(message) <<? Map("auth_token" → token) << formParams) foreach {res =>
-      println(res.getStatusCode)
-      println(res.getResponseBody)
-    }
+    Http(url(message) <<? Map("auth_token" → token) << formParams)
+    ()
   }
 }
