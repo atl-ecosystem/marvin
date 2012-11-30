@@ -33,6 +33,7 @@ sealed case class InterpretExpr(expr: String) extends Expr
 class ScalaInterpreter(token: String, room: Room) {
   import scala.tools.nsc.interpreter._
   import scala.tools.nsc.interpreter.Results._
+  import scala.tools.nsc.util._
 
   def interpret(expr: String): Unit = actor ! InterpretExpr(expr)
   def typed(expr: String): Unit = actor ! TypeExpr(expr)
@@ -50,15 +51,18 @@ class ScalaInterpreter(token: String, room: Room) {
       override def resetClassLoader() = {
         _classLoader = mkClassLoader
       }
-      private def mkClassLoader =
+      override lazy val compilerClasspath = List(this.getClass.getClassLoader.getResource("amkt.jar"))
+      private def mkClassLoader = {
+        val parent = ScalaClassLoader.fromURLs(compilerClasspath, null)
         // copied from IMain and modified 
-        new AbstractFileClassLoader(virtualDirectory, null) {
+        new AbstractFileClassLoader(virtualDirectory, parent) {
           override protected def findAbstractFile(name: String) =
             super.findAbstractFile(name) match {
               case null if isInitializeComplete => generatedName(name) map (x => super.findAbstractFile(x)) orNull
               case file                         => file
             }
         }
+      }
     }
     si.quietImport("scalaz._")
     si.quietImport("Scalaz._")
