@@ -74,12 +74,12 @@ case class Message
 object Message {
   import JsonEncoders._
   private def messageToJson(msg: Message) =
-    jsonObject( "room_id" → jNumber(JsonNumber(msg.roomId))
-              , "from"    → implicitly[EncodeJson[String]].apply(msg.from)
-              , "message" → implicitly[EncodeJson[String]].apply(msg.message)
-              , "color"   → implicitly[EncodeJson[MessageColor]].apply(msg.color)
-              , "format"  → implicitly[EncodeJson[MessageFormat]].apply(msg.format)
-              , "notify"  → jNumber(JsonNumber(if (msg.notifyR) 1 else 0))
+    jsonObject( "room_id"         → jNumber(JsonNumber(msg.roomId))
+              , "from"            → implicitly[EncodeJson[String]].apply(msg.from)
+              , "message"         → implicitly[EncodeJson[String]].apply(msg.message)
+              , "color"           → implicitly[EncodeJson[MessageColor]].apply(msg.color)
+              , "message_format"  → implicitly[EncodeJson[MessageFormat]].apply(msg.format)
+              , "notify"          → jNumber(JsonNumber(if (msg.notifyR) 1 else 0))
               )
   implicit lazy val EncodePerson: EncodeJson[Message] = EncodeJson(messageToJson, "Message")
 }

@@ -11,7 +11,7 @@ object RaiseIssueServlet {
     def parse = Parser.parse(msg.message.drop(1))
     def toMessage(v: Validation[String, RaiseIssue]) =
       v.fold( success = _.toString
-            , failure = err ⇒ "Parsing failed: %s\nUsage: %s".format(err, usage)
+            , failure = err ⇒ "Parsing failed: %s.  Usage: %s".format(err, usage)
             )
 
     Some(Message( roomId = msg.room.id
