@@ -18,12 +18,14 @@ object WebHookServlet {
       parse(req) match {
         case Failure(InvalidKey) ⇒ resp.sendError(401)
         case Failure(ParseError(err)) ⇒ resp.sendError(400, err); println("Failed during parsing: " + err)
-        case Success(in) ⇒
-          resp.setStatus(200)
-          f(in).foreach(sendMessage(resp))
+        case Success(in) ⇒ f(in) match {
+          case Some(msg) ⇒ resp.setStatus(200)
+                           sendMessage(resp, msg)
+          case _         ⇒ resp.setStatus(202)
+        }
       }
 
-    def sendMessage(resp: HttpServletResponse)(msg: Message): Unit = {
+    def sendMessage(resp: HttpServletResponse, msg: Message): Unit = {
       resp.setContentType("application/json")
       resp.getWriter.write(implicitly[EncodeJson[Message]].apply(msg).toString)
       resp.getWriter.flush

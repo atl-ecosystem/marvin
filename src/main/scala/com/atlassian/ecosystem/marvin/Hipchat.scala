@@ -1,7 +1,9 @@
 package com.atlassian.ecosystem.marvin
 
 import scalaz._
+import std.anyVal._
 import syntax.monad._
+import syntax.show._
 
 import com.ephox.argonaut._
 import Argonaut._
@@ -43,15 +45,21 @@ object WebHookMessage {
       )(WebHookMessage.apply)
     ))
 }
-sealed trait MessageFormat
+sealed trait MessageFormat {
+  override final val toString = super.toString.toLowerCase
+}
 object MessageFormat {
   case object Html extends MessageFormat
   case object Text extends MessageFormat
 
   implicit lazy val encodeJsonMessageFormat: EncodeJson[MessageFormat] =
     EncodeJson(f => implicitly[EncodeJson[String]].apply(f.toString.toLowerCase), "MessageFormat")
+
+  implicit lazy val MessageFormatShow: Show[MessageFormat] = Show.showA
 }
-sealed trait MessageColor
+sealed trait MessageColor {
+  override final val toString = super.toString.toLowerCase
+}
 object MessageColor {
   case object Yellow extends MessageColor
   case object Red extends MessageColor
@@ -61,7 +69,9 @@ object MessageColor {
   case object Random extends MessageColor
 
   implicit lazy val encodeJsonMessageColor: EncodeJson[MessageColor] =
-    EncodeJson(c => implicitly[EncodeJson[String]].apply(c.toString.toLowerCase), "MessageColor")
+    EncodeJson(c => implicitly[EncodeJson[String]].apply(c.toString), "MessageColor")
+
+  implicit lazy val MessageColorShow: Show[MessageColor] = Show.showA
 }
 case class Message
   ( roomId: Int
@@ -89,5 +99,15 @@ case object InvalidKey extends HipchatError
 sealed case class ParseError(err: String) extends HipchatError
 
 object Hipchat {
-  def sendMessage(key: String, roomId: Either[Int, String], msg: String) = println("sending message to '%s': %s".format(roomId, msg))
+  import dispatch._
+  val message = "https://api.hipchat.com/v1/rooms/message"
+  def sendMessage(key: String, msg: Message) = {
+    Http(url(message) << Map( "room_id"     → msg.roomId.shows
+                            , "from"        → msg.from
+                            , "message"     → msg.message
+                            , "color"       → msg.color.shows
+                            , "message_format" → msg.format.shows
+                            , "notify"      → (if (msg.notifyR) 1 else 0).shows
+                            ))
+  }
 }

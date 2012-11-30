@@ -30,7 +30,8 @@ object MarvinBuild extends Build {
 
   lazy val dependencies =
     List( "com.ephox" %% "argonaut" % versions.argonaut intransitive()
-        , "commons-codec" % "commons-codec" % "1.6" // for dispatch"
+        , "com.ning" % "async-http-client" % "1.7.5" // for dispatch
+        , "commons-codec" % "commons-codec" % "1.6" // for dispatch
         , "commons-fileupload" % "commons-fileupload" % "1.2.2"
         , "commons-io" % "commons-io" % "1.3.2"
         , "net.databinder.dispatch" %% "dispatch-core" % versions.dispatch intransitive()
