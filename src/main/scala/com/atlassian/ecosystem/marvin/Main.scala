@@ -53,7 +53,7 @@ object Main {
     servlets.setContextPath("/")
     servlets.addServlet(new ServletHolder(LinkIssueServlet(config)), "/link-issue")
     servlets.addServlet(new ServletHolder(RaiseIssueServlet(config)), "/raise-issue")
-    servlets.addServlet(new ServletHolder(ScalaServlet(config)), "/scala-repl")
+    servlets.addServlet(new ServletHolder(ScalaReplServlet(config)), "/scala-repl")
 
     val handlers = new HandlerList
     handlers.setHandlers(Array(servlets))

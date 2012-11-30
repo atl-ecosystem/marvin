@@ -39,6 +39,7 @@ object MarvinBuild extends Build {
         , "org.eclipse.jetty" % "jetty-webapp" % versions.jetty
         , "org.eclipse.jetty" % "jetty-plus" % versions.jetty
         , "org.scalaz" %% "scalaz-core" % versions.scalaz
+        , "org.scalaz" %% "scalaz-concurrent" % versions.scalaz
         , "org.scalaz" %% "scalaz-effect" % versions.scalaz
         , "org.scala-lang" % "scala-compiler" % versions.scala
         )

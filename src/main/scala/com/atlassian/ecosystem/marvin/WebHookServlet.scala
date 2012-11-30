@@ -46,7 +46,6 @@ object WebHookServlet {
       ps.get("private_key") match {
         case Some(k) if k == privateKey ⇒
           ps.get("payload").map(parsePayload).getOrElse(ParseError("No payload").fail)
-        case Some(k) ⇒ println("bad private_key, got '%s' expected '%s'".format(k, privateKey)); InvalidKey.fail
         case _ ⇒ InvalidKey.fail
       }
     }

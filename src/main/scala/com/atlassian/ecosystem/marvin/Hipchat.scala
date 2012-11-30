@@ -88,3 +88,6 @@ sealed trait HipchatError
 case object InvalidKey extends HipchatError
 sealed case class ParseError(err: String) extends HipchatError
 
+object Hipchat {
+  def sendMessage(key: String, roomId: Either[Int, String], msg: String) = println("sending message to '%s': %s".format(roomId, msg))
+}
