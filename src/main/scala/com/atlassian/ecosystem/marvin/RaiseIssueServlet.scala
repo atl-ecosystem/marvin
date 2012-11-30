@@ -47,6 +47,7 @@ import scala.util.parsing.combinator._
 import scala.util.parsing.combinator.syntactical._
 object Parser extends StandardTokenParsers {
   lexical.delimiters ++= List(":", ",", "-")
+  lexical.reserved += ( "raise", "in", "by", "as", "on", "schedule", "for", "reported", "assign", "to")
 
   def parse(msg: String): Validation[String, RaiseIssue] = raise(new lexical.Scanner(msg)) match {
     case Success(c, _) => c.success
