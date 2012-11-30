@@ -125,6 +125,5 @@ object Hipchat {
       println(res.getStatusCode)
       println(res.getResponseBody)
     }
-
   }
 }

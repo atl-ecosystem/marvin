@@ -14,7 +14,9 @@ object ScalaReplServlet {
       var is = scala.collection.mutable.Map[Room, ScalaInterpreter]()
       Actor[WebHookMessage] { msg ⇒
         val i = is.getOrElseUpdate(msg.room, new ScalaInterpreter(config.hipchatToken, msg.room))
-        i.interpret(msg.message.trim.drop(1))
+        val msg_ = msg.message.trim
+        if (msg_.startsWith(">type")) i.typed(msg_.drop(5))
+        else i.interpret(msg_.drop(1))
       }
     }
     
@@ -25,11 +27,15 @@ object ScalaReplServlet {
   }
 }
 
+private[this] sealed trait Expr { def expr: String }
+private[this] sealed case class TypeExpr(expr: String) extends Expr
+private[this] sealed case class InterpretExpr(expr: String) extends Expr
 private[this] class ScalaInterpreter(token: String, room: Room) {
   import scala.tools.nsc.interpreter.{IMain}
   import scala.tools.nsc.interpreter.Results._
 
-  def interpret(code: String): Unit = actor ! code
+  def interpret(expr: String): Unit = actor ! InterpretExpr(expr)
+  def typed(expr: String): Unit = actor ! TypeExpr(expr)
 
   implicit val SingleThreadedStrategy = Strategy.Executor(Executors.newSingleThreadExecutor)
 
@@ -59,13 +65,17 @@ private[this] class ScalaInterpreter(token: String, room: Room) {
     case Error => out.toString.replaceAll("^<console>:[0-9]+: ", "")
     case Incomplete => "error: unexpected EOF found, incomplete expression"
   }
-  private[this] def message(r: Result) =
+  private[this] def message(msg: String) =
     Message( roomId = room.id
            , from = "marvin"
-           , message = parseResult(r)
+           , message = msg
            )
-  private[this] val actor = Actor[String] { code ⇒
-    Hipchat.sendMessage(token, interpret_(code)(message))
+  private[this] def run(expr: Expr) = expr match {
+    case TypeExpr(e)      ⇒ message(si.typeOfExpression(e) map (_.toString) getOrElse "Failed to determine type.")
+    case InterpretExpr(e) ⇒ message(interpret_(e)(parseResult))
+  }
+  private[this] val actor = Actor[Expr] { expr ⇒
+    Hipchat.sendMessage(token, run(expr))
   }
 }
 
