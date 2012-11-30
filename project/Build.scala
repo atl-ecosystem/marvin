@@ -13,7 +13,7 @@ object MarvinBuild extends Build {
   lazy val projectSettings: List[Setting[_]] = 
     List( organization := "com.atlassian.ecosystem"
         , name := "marvin"
-        , scalaVersion := "2.9.2"
+        , scalaVersion := versions.scala
         , scalacOptions ++= List("-unchecked", "-deprecation", "-Ydependent-method-types", "-Ywarn-value-discard")
         , libraryDependencies := dependencies
         , resolvers ++= resolvers_
@@ -23,6 +23,7 @@ object MarvinBuild extends Build {
     val dispatch = "0.9.4"
     val httpclient = "4.2.1"
     val jetty = "8.0.4.v20111024"
+    val scala = "2.9.2"
     val scalaz = "7.0.0-M1"
     val argonaut = "4.0"
   }
@@ -39,6 +40,7 @@ object MarvinBuild extends Build {
         , "org.eclipse.jetty" % "jetty-plus" % versions.jetty
         , "org.scalaz" %% "scalaz-core" % versions.scalaz
         , "org.scalaz" %% "scalaz-effect" % versions.scalaz
+        , "org.scala-lang" % "scala-compiler" % versions.scala
         )
 
   lazy val resolvers_ = 

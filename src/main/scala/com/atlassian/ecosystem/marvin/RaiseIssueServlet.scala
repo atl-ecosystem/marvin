@@ -9,14 +9,13 @@ object RaiseIssueServlet {
   val usage = "raise <issue-type> <issue-summary> in <project-key> [reported by <user>] [assign to (<user>|me)] [schedule for <version>]"
   def apply(config: Config): HttpServlet = WebHookServlet(config.raiseIssueKey) { msg ⇒
     def parse = Parser.parse(msg.message.drop(1))
-    def toMessage(v: Validation[String, RaiseIssue]) =
+    def addUsage(v: Validation[String, RaiseIssue]) =
       v.fold( success = _.toString
             , failure = err ⇒ "Parsing failed: %s.  Usage: %s".format(err, usage)
             )
-
     Some(Message( roomId = msg.room.id
                 , from = "marvin"
-                , message = toMessage(parse)
+                , message = addUsage(parse)
                 ))
   }
 
@@ -63,9 +62,9 @@ object Parser extends StandardTokenParsers {
   }
 
   def raise: Parser[RaiseIssue] =
-    typeAndSummary ~ project ~ opt(authors) ~ opt(reportedBy) ~ opt(assignTo) ~ opt(scheduleFor) ^^ {
-      case typeAndSummary ~ projectKey ~ authors ~ reporter ~ assignee ~ version => 
-        RaiseIssue(typeAndSummary._1, typeAndSummary._2, projectKey, authors, reporter, assignee, version)
+    typeAndSummary ~ project ~ opt(reportedBy) ~ opt(assignTo) ~ opt(scheduleFor) ^^ {
+      case typeAndSummary ~ projectKey ~ reporter ~ assignee ~ version => 
+        RaiseIssue(typeAndSummary._1, typeAndSummary._2, projectKey, reporter, assignee, version)
     }
 
   def typeAndSummary: Parser[(String, String)] = 
@@ -80,9 +79,6 @@ object Parser extends StandardTokenParsers {
   def scheduleFor: Parser[String] =
     "schedule" ~ "for" ~> (ident | stringLit) ^^ (s => s)
     
-  def authors: Parser[List[String]] =
-    "by" ~> repsep(ident, ",") 
-
   def reportedBy: Parser[String] =
     "reported" ~ "by" ~> ident ^^ (s => s)
 }
@@ -91,7 +87,6 @@ case class RaiseIssue
   ( issueType: String
   , summary: String
   , project: String 
-  , authors: Option[List[String]] 
   , reporter: Option[String] 
   , assignee: Option[String] 
   , version: Option[String]

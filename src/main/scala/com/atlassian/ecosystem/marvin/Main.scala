@@ -19,6 +19,7 @@ case class Config
   , jiraBase: String
   , linkIssueKey: String
   , raiseIssueKey: String
+  , scalaReplKey: String
   )
 
 object Main {
@@ -29,11 +30,12 @@ object Main {
   
   type ConfigParseResult[A] = ValidationNEL[String, A]
   def getConfig: IO[Config] =
-    Apply[IO].compose[ConfigParseResult].map5( getPort
+    Apply[IO].compose[ConfigParseResult].map6( getPort
                                              , getReqEnv("HIPCHAT_TOKEN")
                                              , getReqEnv("JIRA_BASE")
                                              , getReqEnv("LINK_ISSUE_KEY")
                                              , getReqEnv("RAISE_ISSUE_KEY")
+                                             , getReqEnv("SCALA_REPL_KEY")
                                              )(Config.apply) >>= 
       (_.fold(success = _.point[IO], failure = errs ⇒ throwIO(new RuntimeException(errs.list.mkString))))
 
@@ -51,6 +53,7 @@ object Main {
     servlets.setContextPath("/")
     servlets.addServlet(new ServletHolder(LinkIssueServlet(config)), "/link-issue")
     servlets.addServlet(new ServletHolder(RaiseIssueServlet(config)), "/raise-issue")
+    servlets.addServlet(new ServletHolder(ScalaServlet(config)), "/scala-repl")
 
     val handlers = new HandlerList
     handlers.setHandlers(Array(servlets))
