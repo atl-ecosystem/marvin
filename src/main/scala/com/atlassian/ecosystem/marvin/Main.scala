@@ -76,8 +76,8 @@ object Room {
   import JsonDecoders._
   implicit lazy val decodeJsonRoom: DecodeJson[Room] =
     DecodeJson(decodeJsonObject(_)(jobj ⇒
-      ( reqObjField[Int](jobj, "id")      |@|
-        reqObjField[String](jobj, "name")
+      ( reqObjField[Int](jobj, "Room", "id")      |@|
+        reqObjField[String](jobj, "Room", "name")
       )(Room.apply)
     ))
 }
@@ -86,9 +86,9 @@ object Sender {
   import JsonDecoders._
   implicit lazy val decodeJsonSender: DecodeJson[Sender] =
     DecodeJson(decodeJsonObject(_)(jobj ⇒
-      ( reqObjField[Int](jobj, "id")         |@|
-        reqObjField[String](jobj, "name")    |@|
-        reqObjField[String](jobj, "mention")
+      ( reqObjField[Int](jobj, "Sender", "id")         |@|
+        reqObjField[String](jobj, "Sender", "name")    |@|
+        reqObjField[String](jobj, "Sender", "mention")
       )(Sender.apply)
     ))
 }
@@ -97,8 +97,13 @@ object JsonDecoders {
   def decodeJsonObject[A](j: Json)(decode: JsonObject ⇒ DecodeResult[A]): DecodeResult[A] =
     j.obj.map(decode).getOrElse(DecodeResult.decodeError(j, "not a json object"))
 
-  def reqObjField[A](jobj: JsonObject, name: JsonField)(implicit A: DecodeJson[A]): DecodeResult[A] =
-    jobj(name).map(A.apply).getOrElse(DecodeResult.decodeError(jObject(jobj), "missing '" + name + "' field"))
+  def reqObjField[A](jobj: JsonObject, oname: String, name: JsonField)(implicit A: DecodeJson[A]): DecodeResult[A] = {
+    def enhanceError(r: DecodeResult[A]): DecodeResult[A] = r.toEither match {
+      case Left(msg) => DecodeResult.decodeError(r.json.get, "Could not parse '%s.%s': %s".format(oname, name, msg))
+      case Right(_)  ⇒ r
+    }
+   jobj(name).map(f ⇒ enhanceError(A.apply(f))).getOrElse(DecodeResult.decodeError(jObject(jobj), "missing '%s.%s' field".format(oname, name)))
+  }
 }
 
 case class WebHookMessage(regex: String, matches: List[String], message: String, room: Room, sender: Sender)
@@ -106,11 +111,11 @@ object WebHookMessage {
   import JsonDecoders._
   implicit lazy val decodeJsonWebHookMessage: DecodeJson[WebHookMessage] =
     DecodeJson(decodeJsonObject(_)(jobj ⇒
-      ( reqObjField[String](jobj, "regex")            |@|
-        reqObjField[List[String]](jobj, "matches")    |@|
-        reqObjField[String](jobj, "message")          |@|
-        reqObjField[Room](jobj, "room")               |@|
-        reqObjField[Sender](jobj, "sender")
+      ( reqObjField[String](jobj, "WebHookMessage", "regex")            |@|
+        reqObjField[List[String]](jobj, "WebHookMessage", "matches")    |@|
+        reqObjField[String](jobj, "WebHookMessage", "message")          |@|
+        reqObjField[Room](jobj, "WebHookMessage", "room")               |@|
+        reqObjField[Sender](jobj, "WebHookMessage", "sender")
       )(WebHookMessage.apply)
     ))
 }
