@@ -30,18 +30,6 @@ object MarvinBuild extends Build {
 
   lazy val dependencies =
     List( "com.ephox" %% "argonaut" % versions.argonaut intransitive()
-        , "com.ning" % "async-http-client" % "1.7.5" // for dispatch
-        , "commons-codec" % "commons-codec" % "1.6" // for dispatch
-        , "commons-fileupload" % "commons-fileupload" % "1.2.2"
-        , "commons-io" % "commons-io" % "1.3.2"
-        , "net.databinder.dispatch" %% "dispatch-core" % versions.dispatch intransitive()
-        , "org.apache.httpcomponents" % "httpcore" % versions.httpclient intransitive()
-        , "org.apache.httpcomponents" % "httpclient" % versions.httpclient intransitive()
-        , "org.eclipse.jetty" % "jetty-webapp" % versions.jetty
-        , "org.eclipse.jetty" % "jetty-plus" % versions.jetty
-        , "org.scalaz" %% "scalaz-core" % versions.scalaz
-        , "org.scalaz" %% "scalaz-concurrent" % versions.scalaz
-        , "org.scalaz" %% "scalaz-effect" % versions.scalaz
         , "org.scala-lang" % "scala-compiler" % versions.scala
         , "org.slf4j" % "slf4j-simple" % "1.6.2"
         )

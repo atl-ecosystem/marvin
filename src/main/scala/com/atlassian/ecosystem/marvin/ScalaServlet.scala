@@ -47,22 +47,7 @@ class ScalaInterpreter(token: String, room: Room) {
     settings.deprecation.value = true
     settings.YdepMethTpes.value = true
     val si = new IMain(settings, new scala.tools.nsc.NewLinePrintWriter(new OutputStreamWriter(out), true)) { 
-      private var _classLoader: AbstractFileClassLoader = null
-      override def resetClassLoader() = {
-        _classLoader = mkClassLoader
-      }
-      override lazy val compilerClasspath = List(this.getClass.getClassLoader.getResource("amkt.jar"))
-      private def mkClassLoader = {
-        val parent = ScalaClassLoader.fromURLs(compilerClasspath, null)
-        // copied from IMain and modified 
-        new AbstractFileClassLoader(virtualDirectory, parent) {
-          override protected def findAbstractFile(name: String) =
-            super.findAbstractFile(name) match {
-              case null if isInitializeComplete => generatedName(name) map (x => super.findAbstractFile(x)) orNull
-              case file                         => file
-            }
-        }
-      }
+      override def parentClassLoader = Thread.currentThread.getContextClassLoader
     }
     si.quietImport("scalaz._")
     si.quietImport("Scalaz._")

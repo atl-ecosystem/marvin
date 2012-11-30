@@ -2,7 +2,6 @@ package com.atlassian.ecosystem.marvin
 
 import scalaz._
 import std.anyVal._
-import syntax.monad._
 import syntax.show._
 
 import com.ephox.argonaut._
@@ -15,9 +14,9 @@ object Room {
   import JsonDecoders._
   implicit lazy val decodeJsonRoom: DecodeJson[Room] =
     DecodeJson(decodeJsonObject(_)(jobj ⇒
-      ( reqObjField[Int](jobj, "Room", "id")      |@|
-        reqObjField[String](jobj, "Room", "pretty_name")
-      )(Room.apply)
+      Apply[DecodeResult].map2( reqObjField[Int](jobj, "Room", "id")
+                              , reqObjField[String](jobj, "Room", "pretty_name")
+                              )(Room.apply)
     ))
 }
 case class Sender(id: Int, name: String, mention: String)
@@ -25,10 +24,10 @@ object Sender {
   import JsonDecoders._
   implicit lazy val decodeJsonSender: DecodeJson[Sender] =
     DecodeJson(decodeJsonObject(_)(jobj ⇒
-      ( reqObjField[Int](jobj, "Sender", "id")         |@|
-        reqObjField[String](jobj, "Sender", "name")    |@|
-        reqObjField[String](jobj, "Sender", "mention_name")
-      )(Sender.apply)
+      Apply[DecodeResult].map3( reqObjField[Int](jobj, "Sender", "id")
+                              , reqObjField[String](jobj, "Sender", "name")
+                              , reqObjField[String](jobj, "Sender", "mention_name")
+                              )(Sender.apply)
     ))
 }
 
@@ -37,12 +36,12 @@ object WebHookMessage {
   import JsonDecoders._
   implicit lazy val decodeJsonWebHookMessage: DecodeJson[WebHookMessage] =
     DecodeJson(decodeJsonObject(_)(jobj ⇒
-      ( reqObjField[String](jobj, "WebHookMessage", "regex")            |@|
-        reqObjField[List[String]](jobj, "WebHookMessage", "matches")    |@|
-        reqObjField[String](jobj, "WebHookMessage", "message")          |@|
-        reqObjField[Room](jobj, "WebHookMessage", "room")               |@|
-        reqObjField[Sender](jobj, "WebHookMessage", "sender")
-      )(WebHookMessage.apply)
+      Apply[DecodeResult].map5( reqObjField[String](jobj, "WebHookMessage", "regex")
+                              , reqObjField[List[String]](jobj, "WebHookMessage", "matches")
+                              , reqObjField[String](jobj, "WebHookMessage", "message")
+                              , reqObjField[Room](jobj, "WebHookMessage", "room")
+                              , reqObjField[Sender](jobj, "WebHookMessage", "sender")
+                              )(WebHookMessage.apply)
     ))
 }
 sealed trait MessageFormat {
@@ -112,6 +111,7 @@ sealed case class ParseError(err: String) extends HipchatError
 
 object Hipchat {
   import dispatch._
+  val http = new Http with thread.Safety
   val message = "https://api.hipchat.com/v1/rooms/message"
   def sendMessage(token: String, msg: Message) = {
     def formParams = Map( "room_id"     → msg.roomId.shows
@@ -121,7 +121,8 @@ object Hipchat {
                         , "message_format" → msg.format.shows
                         , "notify"      → (if (msg.notifyR) 1 else 0).shows
                         )
-    Http(url(message) <<? Map("auth_token" → token) << formParams)
+    val req = url(message) <<? Map("auth_token" → token) << formParams
+    http(req >|)
     ()
   }
 }
