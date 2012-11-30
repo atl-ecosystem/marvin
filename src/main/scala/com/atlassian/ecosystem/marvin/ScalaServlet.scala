@@ -46,10 +46,10 @@ private[this] class ScalaInterpreter(token: String, room: Room) {
     settings.deprecation.value = true
     settings.YdepMethTpes.value = true
     val si = new IMain(settings, new scala.tools.nsc.NewLinePrintWriter(new OutputStreamWriter(out), true)) { 
-      override def parentClassLoader = {
-        import java.net._
+      override def parentClassLoader = null
+      override lazy val compilerClasspath = {
         val cl = Thread.currentThread.getContextClassLoader 
-        new URLClassLoader(Array(cl.getResource("amkt.jar")))
+        List(cl.getResource("amkt.jar"))
       }
     }
     si.quietImport("scalaz._")
