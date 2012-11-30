@@ -27,11 +27,11 @@ object ScalaReplServlet {
   }
 }
 
-private[this] sealed trait Expr { def expr: String }
-private[this] sealed case class TypeExpr(expr: String) extends Expr
-private[this] sealed case class InterpretExpr(expr: String) extends Expr
-private[this] class ScalaInterpreter(token: String, room: Room) {
-  import scala.tools.nsc.interpreter.{IMain}
+sealed trait Expr { def expr: String }
+sealed case class TypeExpr(expr: String) extends Expr
+sealed case class InterpretExpr(expr: String) extends Expr
+class ScalaInterpreter(token: String, room: Room) {
+  import scala.tools.nsc.interpreter._
   import scala.tools.nsc.interpreter.Results._
 
   def interpret(expr: String): Unit = actor ! InterpretExpr(expr)
@@ -40,17 +40,25 @@ private[this] class ScalaInterpreter(token: String, room: Room) {
   implicit val SingleThreadedStrategy = Strategy.Executor(Executors.newSingleThreadExecutor)
 
   val out = new ByteArrayOutputStream
-  private[this] lazy val si = {
+  lazy val si = {
     val settings = new scala.tools.nsc.Settings(null)
     settings.usejavacp.value = true
     settings.deprecation.value = true
     settings.YdepMethTpes.value = true
     val si = new IMain(settings, new scala.tools.nsc.NewLinePrintWriter(new OutputStreamWriter(out), true)) { 
-      override def parentClassLoader = null
-      override lazy val compilerClasspath = {
-        val cl = Thread.currentThread.getContextClassLoader 
-        List(cl.getResource("amkt.jar"))
+      private var _classLoader: AbstractFileClassLoader = null
+      override def resetClassLoader() = {
+        _classLoader = mkClassLoader
       }
+      private def mkClassLoader =
+        // copied from IMain and modified 
+        new AbstractFileClassLoader(virtualDirectory, null) {
+          override protected def findAbstractFile(name: String) =
+            super.findAbstractFile(name) match {
+              case null if isInitializeComplete => generatedName(name) map (x => super.findAbstractFile(x)) orNull
+              case file                         => file
+            }
+        }
     }
     si.quietImport("scalaz._")
     si.quietImport("Scalaz._")
@@ -74,7 +82,7 @@ private[this] class ScalaInterpreter(token: String, room: Room) {
            , from = "marvin"
            , message = msg
            )
-  private[this] def run(expr: Expr) = expr match {
+  def run(expr: Expr) = expr match {
     case TypeExpr(e)      ⇒ message(si.typeOfExpression(e) map (_.toString) getOrElse "Failed to determine type.")
     case InterpretExpr(e) ⇒ message(interpret_(e)(parseResult))
   }
