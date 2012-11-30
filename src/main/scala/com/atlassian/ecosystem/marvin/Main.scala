@@ -23,7 +23,13 @@ import scala.io._
 
 import javax.servlet.http._
 
-case class Config(port: Int, hipchatToken: String, issueLinkToken: String, jiraBase: String)
+case class Config
+  ( port: Int
+  , hipchatToken: String
+  , jiraBase: String
+  , linkIssueKey: String
+  , raiseIssueKey: String
+  )
 
 object Main {
   def main(args: Array[String]): Unit = mainIO(ImmutableArray.fromArray(args)) unsafePerformIO
@@ -33,32 +39,28 @@ object Main {
   
   type ConfigParseResult[A] = ValidationNEL[String, A]
   def getConfig: IO[Config] =
-    Apply[IO].compose[ConfigParseResult].map4( getPort
-                                             , getHipchatToken
-                                             , getIssueLinkToken
-                                             , getJiraBase
+    Apply[IO].compose[ConfigParseResult].map5( getPort
+                                             , getReqEnv("HIPCHAT_TOKEN")
+                                             , getReqEnv("JIRA_BASE")
+                                             , getReqEnv("LINK_ISSUE_KEY")
+                                             , getReqEnv("RAISE_ISSUE_KEY")
                                              )(Config.apply) >>= 
       (_.fold(success = _.point[IO], failure = errs ⇒ throwIO(new RuntimeException(errs.list.mkString))))
 
   def getEnv(name: String): IO[Option[String]] = IO(Option(System.getenv(name)))
 
+  def getReqEnv(name: String): IO[ConfigParseResult[String]] =
+    getEnv(name) map (_.fold(some = _.successNel, none = "Missing env var '%s'".format(name).failNel))
+
   def getPort: IO[ConfigParseResult[Int]] =
     getEnv("PORT") map (s ⇒
       s.getOrElse("8080").parseInt.fold(success = _.successNel, failure = _ ⇒ "Invalid port '%s'".format(s).failNel))
 
-  def getHipchatToken: IO[ConfigParseResult[String]] =
-    getEnv("HIPCHAT_TOKEN") map (_.fold(some = _.successNel, none = "Missing env var 'HIPCHAT_TOKEN'".failNel))
-
-  def getIssueLinkToken: IO[ConfigParseResult[String]] =
-    getEnv("ISSUE_LINK_TOKEN") map (_.fold(some = _.successNel, none = "Missing env var 'ISSUE_LINK_TOKEN'".failNel))
-
-  def getJiraBase: IO[ConfigParseResult[String]] =
-    getEnv("JIRA_BASE") map (_.fold(some = _.successNel, none = "Missing env var 'JIRA_BASE'".failNel))
-
   def createServer(config: Config): IO[Server] = IO {
     val servlets = new ServletContextHandler
     servlets.setContextPath("/")
-    servlets.addServlet(new ServletHolder(new IssueLinkingServlet(config)), "/issue-linker")
+    servlets.addServlet(new ServletHolder(LinkIssueServlet(config)), "/link-issue")
+    servlets.addServlet(new ServletHolder(RaiseIssueServlet(config)), "/raise-issue")
 
     val handlers = new HandlerList
     handlers.setHandlers(Array(servlets))
@@ -182,46 +184,56 @@ sealed trait HipchatError
 case object InvalidKey extends HipchatError
 sealed case class ParseError(err: String) extends HipchatError
 
-class IssueLinkingServlet(config: Config) extends HttpServlet {
-  override def doPost(req: HttpServletRequest , resp: HttpServletResponse): Unit = {
-    parse(req) match {
-      case Failure(InvalidKey) ⇒ resp.sendError(401)
-      case Failure(ParseError(err)) ⇒ resp.sendError(400, err); println("Failed during parsing: " + err)
-      case Success(in) ⇒
-        resp.setContentType("application/json")
-        val out = Message( roomId = in.room.id
-                         , from = "marvin"
-                         , message = links(in.message).mkString("\n")
-                         )
-        resp.getWriter.write(implicitly[EncodeJson[Message]].apply(out).toString)
-        resp.getWriter.flush
+object WebHookServlet {
+  def apply(privateKey: String)(f: WebHookMessage ⇒ Option[Message]): HttpServlet = new HttpServlet {
+    override def doPost(req: HttpServletRequest , resp: HttpServletResponse): Unit =
+      parse(req) match {
+        case Failure(InvalidKey) ⇒ resp.sendError(401)
+        case Failure(ParseError(err)) ⇒ resp.sendError(400, err); println("Failed during parsing: " + err)
+        case Success(in) ⇒
+          resp.setStatus(200)
+          f(in).foreach(sendMessage(resp))
+      }
+
+    def sendMessage(resp: HttpServletResponse)(msg: Message): Unit = {
+      resp.setContentType("application/json")
+      resp.getWriter.write(implicitly[EncodeJson[Message]].apply(msg).toString)
+      resp.getWriter.flush
+    }
+
+    private def multipartParser = new ServletFileUpload(new DiskFileItemFactory())
+    private def parts(req: HttpServletRequest) = {
+      import scala.collection.JavaConversions
+      val fis = JavaConversions.asScalaBuffer(multipartParser.parseRequest(req).asInstanceOf[java.util.List[FileItem]]).toList 
+      fis.flatMap(fi ⇒ if (fi.isFormField) List(fi.getFieldName → fi.getString) else Nil).toMap
+    }
+    private def parsePayload(payload: String) = {
+      val res = payload.parseIgnoreErrorType( _.decode[WebHookMessage].map(_.success)
+                                            , s ⇒ DecodeResult(s.fail)
+                                            )
+      res.toValidation.flatMap(identity).fail.map(ParseError(_)).validation
+    }
+    private def parse(req: HttpServletRequest): Validation[HipchatError, WebHookMessage] = {
+      val ps = parts(req)
+      ps.get("private_key") match {
+        case Some(k) if k == privateKey ⇒
+          ps.get("payload").map(parsePayload).getOrElse(ParseError("No payload").fail)
+        case _ ⇒ InvalidKey.fail
+      }
     }
   }
+}
 
-  def multipartParser = new ServletFileUpload(new DiskFileItemFactory())
-  def parts(req: HttpServletRequest) = {
-    import scala.collection.JavaConversions
-    val fis = JavaConversions.asScalaBuffer(multipartParser.parseRequest(req).asInstanceOf[java.util.List[FileItem]]).toList 
-    fis.flatMap(fi ⇒ if (fi.isFormField) List(fi.getFieldName → fi.getString) else Nil).toMap
-  }
-  def parsePayload(payload: String) = {
-    val res = payload.parseIgnoreErrorType( _.decode[WebHookMessage].map(_.success)
-                                          , s ⇒ DecodeResult(s.fail)
-                                          )
-    res.toValidation.flatMap(identity).fail.map(ParseError(_)).validation
-  }
-  def parse(req: HttpServletRequest): Validation[HipchatError, WebHookMessage] = {
-    val ps = parts(req)
-    ps.get("private_key") match {
-      case Some(k) if k == config.issueLinkToken ⇒
-        ps.get("payload").map(parsePayload).getOrElse(ParseError("No payload").fail)
-      case _ ⇒ InvalidKey.fail
-    }
-  }
+object LinkIssueServlet {
+  def apply(config: Config): HttpServlet = WebHookServlet(config.linkIssueKey) { msg ⇒
+    def links = (for (id <- LINK_PATTERN findAllIn msg.message) yield link(id)).toList.distinct
+    def link(issueKey: String) = config.jiraBase + "browse/" + issueKey
 
-  def links(msg: String) = (for (id <- LINK_PATTERN findAllIn msg) yield link(id)).toList.distinct
-  
-  def link(issueKey: String) = config.jiraBase + "browse/" + issueKey
+    Some(Message( roomId = msg.room.id
+                , from = "marvin"
+                , message = links.mkString("\n")
+                ))
+  }
 
   // the constructed regex says to find issue keys:
   // * with whitespace, nothing, or an open parenthesis before them. (open paren is here to allow the case where the key is in parenthesis, though the regex doesn't check that the key also ends with one -- unnecessary complication for an uncommon case, i think) 
@@ -239,5 +251,14 @@ class IssueLinkingServlet(config: Config) extends HttpServlet {
                             ")" + // end of capturing group
                             POST_LINK_PATTERN_STRING
   val LINK_PATTERN = LINK_PATTERN_STRING.r
+}
+
+object RaiseIssueServlet {
+  def apply(config: Config): HttpServlet = WebHookServlet(config.raiseIssueKey) { msg ⇒
+    Some(Message( roomId = msg.room.id
+                , from = "marvin"
+                , message = msg.message
+                ))
+  }
 }
 
