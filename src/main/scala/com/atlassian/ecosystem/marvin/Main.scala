@@ -164,12 +164,12 @@ case class Message
 object Message {
   import JsonEncoders._
   private def messageToJson(msg: Message) =
-    jsonObject( "room_id" → implicitly[EncodeJson[Int]].apply(msg.roomId)
+    jsonObject( "room_id" → jNumber(JsonNumber(msg.roomId))
               , "from"    → implicitly[EncodeJson[String]].apply(msg.from)
               , "message" → implicitly[EncodeJson[String]].apply(msg.message)
               , "color"   → implicitly[EncodeJson[MessageColor]].apply(msg.color)
               , "format"  → implicitly[EncodeJson[MessageFormat]].apply(msg.format)
-              , "notify"  → implicitly[EncodeJson[Int]].apply(if (msg.notifyR) 1 else 0)
+              , "notify"  → jNumber(JsonNumber(if (msg.notifyR) 1 else 0))
               )
   implicit lazy val EncodePerson: EncodeJson[Message] = EncodeJson(messageToJson, "Message")
 }
@@ -209,9 +209,9 @@ class IssueLinkingServlet(config: Config) extends HttpServlet {
                          , from = "marvin"
                          , message = in.message
                          )
-        val outstr = """{"room_id":121054,"from":"marvin","message":"dfa AMKT-123","color":"yellow","format":"text","notify":0}"""
-//         resp.getWriter.write(implicitly[EncodeJson[Message]].apply(out).toString)
-        resp.getWriter.write(outstr)
+//         val outstr = """{"room_id":121054,"from":"marvin","message":"dfa AMKT-123","color":"yellow","format":"text","notify":0}"""
+//         resp.getWriter.write(outstr)
+        resp.getWriter.write(implicitly[EncodeJson[Message]].apply(out).toString)
         resp.getWriter.flush
     }
   }
