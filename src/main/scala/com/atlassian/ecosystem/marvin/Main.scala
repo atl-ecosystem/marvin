@@ -98,11 +98,14 @@ object JsonDecoders {
     j.obj.map(decode).getOrElse(DecodeResult.decodeError(j, "not a json object"))
 
   def reqObjField[A](jobj: JsonObject, oname: String, name: JsonField)(implicit A: DecodeJson[A]): DecodeResult[A] = {
-    def enhanceError(r: DecodeResult[A]): DecodeResult[A] = r.toEither match {
-      case Left(msg) => DecodeResult.decodeError(r.json.get, "Could not parse '%s.%s': %s".format(oname, name, msg))
-      case Right(_)  ⇒ r
+    def decode(f: Json): DecodeResult[A] = {
+      val r = A.apply(f)
+      r.toEither match {
+        case Left(msg) => DecodeResult.decodeError(r.json.get, "Could not parse '%s.%s' value '%s': %s".format(oname, name, f, msg))
+        case Right(a)  ⇒ DecodeResult(a)
+      }
     }
-   jobj(name).map(f ⇒ enhanceError(A.apply(f))).getOrElse(DecodeResult.decodeError(jObject(jobj), "missing '%s.%s' field".format(oname, name)))
+   jobj(name).map(decode).getOrElse(DecodeResult.decodeError(jObject(jobj), "missing '%s.%s' field".format(oname, name)))
   }
 }
 
