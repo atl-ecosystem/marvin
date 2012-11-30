@@ -23,7 +23,7 @@ import scala.io._
 
 import javax.servlet.http._
 
-case class Config(port: Int, hipchatToken: String, issueLinkToken: String)
+case class Config(port: Int, hipchatToken: String, issueLinkToken: String, jiraBase: String)
 
 object Main {
   def main(args: Array[String]): Unit = mainIO(ImmutableArray.fromArray(args)) unsafePerformIO
@@ -33,9 +33,10 @@ object Main {
   
   type ConfigParseResult[A] = ValidationNEL[String, A]
   def getConfig: IO[Config] =
-    Apply[IO].compose[ConfigParseResult].map3( getPort
+    Apply[IO].compose[ConfigParseResult].map4( getPort
                                              , getHipchatToken
                                              , getIssueLinkToken
+                                             , getJiraBase
                                              )(Config.apply) >>= 
       (_.fold(success = _.point[IO], failure = errs ⇒ throwIO(new RuntimeException(errs.list.mkString))))
 
@@ -50,6 +51,9 @@ object Main {
 
   def getIssueLinkToken: IO[ConfigParseResult[String]] =
     getEnv("ISSUE_LINK_TOKEN") map (_.fold(some = _.successNel, none = "Missing env var 'ISSUE_LINK_TOKEN'".failNel))
+
+  def getJiraBase: IO[ConfigParseResult[String]] =
+    getEnv("JIRA_BASE") map (_.fold(some = _.successNel, none = "Missing env var 'JIRA_BASE'".failNel))
 
   def createServer(config: Config): IO[Server] = IO {
     val servlets = new ServletContextHandler
@@ -179,6 +183,21 @@ case object InvalidKey extends HipchatError
 sealed case class ParseError(err: String) extends HipchatError
 
 class IssueLinkingServlet(config: Config) extends HttpServlet {
+  override def doPost(req: HttpServletRequest , resp: HttpServletResponse): Unit = {
+    parse(req) match {
+      case Failure(InvalidKey) ⇒ resp.sendError(401)
+      case Failure(ParseError(err)) ⇒ resp.sendError(400, err); println("Failed during parsing: " + err)
+      case Success(in) ⇒
+        resp.setContentType("application/json")
+        val out = Message( roomId = in.room.id
+                         , from = "marvin"
+                         , message = in.message
+                         )
+        resp.getWriter.write(implicitly[EncodeJson[Message]].apply(out).toString)
+        resp.getWriter.flush
+    }
+  }
+
   def multipartParser = new ServletFileUpload(new DiskFileItemFactory())
   def parts(req: HttpServletRequest) = {
     import scala.collection.JavaConversions
@@ -199,22 +218,10 @@ class IssueLinkingServlet(config: Config) extends HttpServlet {
       case _ ⇒ InvalidKey.fail
     }
   }
-  override def doPost(req: HttpServletRequest , resp: HttpServletResponse): Unit = {
-    parse(req) match {
-      case Failure(InvalidKey) ⇒ resp.sendError(401)
-      case Failure(ParseError(err)) ⇒ resp.sendError(400, err); println("Failed during parsing: " + err)
-      case Success(in) ⇒
-        resp.setContentType("application/json")
-        val out = Message( roomId = in.room.id
-                         , from = "marvin"
-                         , message = in.message
-                         )
-//         val outstr = """{"room_id":121054,"from":"marvin","message":"dfa AMKT-123","color":"yellow","format":"text","notify":0}"""
-//         resp.getWriter.write(outstr)
-        resp.getWriter.write(implicitly[EncodeJson[Message]].apply(out).toString)
-        resp.getWriter.flush
-    }
-  }
+
+  def links(msg: String) = (for (id <- LINK_PATTERN findAllIn msg) yield link(id)).toList.distinct
+  
+  def link(issueKey: String) = config.jiraBase + "browse/" + issueKey
 
   // the constructed regex says to find issue keys:
   // * with whitespace, nothing, or an open parenthesis before them. (open paren is here to allow the case where the key is in parenthesis, though the regex doesn't check that the key also ends with one -- unnecessary complication for an uncommon case, i think) 
