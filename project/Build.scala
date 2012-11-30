@@ -43,6 +43,7 @@ object MarvinBuild extends Build {
         , "org.scalaz" %% "scalaz-concurrent" % versions.scalaz
         , "org.scalaz" %% "scalaz-effect" % versions.scalaz
         , "org.scala-lang" % "scala-compiler" % versions.scala
+        , "org.slf4j" % "slf4j-simple" % "1.6.2"
         )
 
   lazy val resolvers_ = 
