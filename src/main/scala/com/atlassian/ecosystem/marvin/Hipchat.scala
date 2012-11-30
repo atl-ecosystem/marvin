@@ -108,6 +108,10 @@ object Hipchat {
                             , "color"       → msg.color.shows
                             , "message_format" → msg.format.shows
                             , "notify"      → (if (msg.notifyR) 1 else 0).shows
-                            ))
+                            )) foreach {res =>
+                           println(res.getStatusCode)
+                           println(res.getResponseBody)
+                            }
+
   }
 }
