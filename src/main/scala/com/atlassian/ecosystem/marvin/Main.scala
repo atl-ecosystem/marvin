@@ -209,8 +209,9 @@ class IssueLinkingServlet(config: Config) extends HttpServlet {
                          , from = "marvin"
                          , message = in.message
                          )
-        println("sending response\n" + implicitly[EncodeJson[Message]].apply(out).toString)
-        resp.getWriter.write(implicitly[EncodeJson[Message]].apply(out).toString)
+        val outstr = """{"room_id":121054,"from":"marvin","message":"dfa AMKT-123","color":"yellow","format":"text","notify":0}"""
+//         resp.getWriter.write(implicitly[EncodeJson[Message]].apply(out).toString)
+        resp.getWriter.write(outstr)
         resp.getWriter.flush
     }
   }
