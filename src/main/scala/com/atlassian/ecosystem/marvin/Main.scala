@@ -96,8 +96,8 @@ object Sender {
 object JsonDecoders {
   implicit lazy val IntDecodeJson: DecodeJson[Int] =
     DecodeJson.decodej({
-      case n: JsonNumber => Some(n.toInt)
-      case j => j.string flatMap (s => try { Some(s.toInt) } catch { case _ => None })
+      case n: JsonNumber => println("decoding using JsonNumber.toInt"); Some(n.toInt)
+      case j => println("decoding by getting the string value and parsing"); j.string flatMap (s => try { Some(s.toInt) } catch { case _ => None })
     }, "Int")
 
   def decodeJsonObject[A](j: Json)(decode: JsonObject ⇒ DecodeResult[A]): DecodeResult[A] =
