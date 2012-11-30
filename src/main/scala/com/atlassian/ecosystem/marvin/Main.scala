@@ -76,7 +76,7 @@ object Room {
   import JsonDecoders._
   implicit lazy val decodeJsonRoom: DecodeJson[Room] =
     DecodeJson(decodeJsonObject(_)(jobj ⇒
-      ( reqObjField[Int](jobj, "Room", "id")      |@|
+      ( reqObjField[Int](jobj, "Room", "id")(IntDecodeJson)      |@|
         reqObjField[String](jobj, "Room", "name")
       )(Room.apply)
     ))
@@ -86,7 +86,7 @@ object Sender {
   import JsonDecoders._
   implicit lazy val decodeJsonSender: DecodeJson[Sender] =
     DecodeJson(decodeJsonObject(_)(jobj ⇒
-      ( reqObjField[Int](jobj, "Sender", "id")         |@|
+      ( reqObjField[Int](jobj, "Sender", "id")(IntDecodeJson)         |@|
         reqObjField[String](jobj, "Sender", "name")    |@|
         reqObjField[String](jobj, "Sender", "mention")
       )(Sender.apply)
