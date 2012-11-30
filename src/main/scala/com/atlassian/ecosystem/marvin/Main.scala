@@ -88,7 +88,7 @@ object Sender {
     DecodeJson(decodeJsonObject(_)(jobj ⇒
       ( reqObjField[Int](jobj, "Sender", "id")         |@|
         reqObjField[String](jobj, "Sender", "name")    |@|
-        reqObjField[String](jobj, "Sender", "mention")
+        reqObjField[String](jobj, "Sender", "mention_name")
       )(Sender.apply)
     ))
 }
