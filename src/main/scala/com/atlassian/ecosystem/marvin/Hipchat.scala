@@ -46,7 +46,11 @@ object WebHookMessage {
     ))
 }
 sealed trait MessageFormat {
-  override final val toString = super.toString.toLowerCase
+  import MessageFormat._
+  override final val toString = this match {
+    case Html ⇒ "html"
+    case Text ⇒ "text"
+  }
 }
 object MessageFormat {
   case object Html extends MessageFormat
@@ -58,7 +62,15 @@ object MessageFormat {
   implicit lazy val MessageFormatShow: Show[MessageFormat] = Show.showA
 }
 sealed trait MessageColor {
-  override final val toString = super.toString.toLowerCase
+  import MessageColor._
+  override final val toString = this match {
+    case Yellow ⇒ "yellow"
+    case Red    ⇒ "red"
+    case Green  ⇒ "green"
+    case Purple ⇒ "purple"
+    case Gray   ⇒ "gray"
+    case Random ⇒ "random"
+  }
 }
 object MessageColor {
   case object Yellow extends MessageColor
