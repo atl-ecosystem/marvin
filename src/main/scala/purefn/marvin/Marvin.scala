@@ -48,7 +48,7 @@ object Marvin {
                    , room = None
                    , body = m.getBody
                    )
-          def reply(m: String) = chat.sendMessage(m)
+          def reply(m: String) = chat.sendMessage(m.trim)
           def processMessage(chat: Chat, m: XMessage) = {
             process.run(Right(chatMessage(m))) map (_ map reply)
             ()
@@ -69,7 +69,7 @@ object Marvin {
                  )
         def reply(m: String) = {
           val msg = muc.createMessage
-          msg.setBody(m)
+          msg.setBody(m.trim)
           muc.sendMessage(msg)
         }
         def processPacket(p: Packet) = p match {
