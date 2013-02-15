@@ -1,47 +1,38 @@
 import sbt._
 import Keys._
 
-import com.typesafe.sbt.SbtStartScript
-
 object MarvinBuild extends Build {
   lazy val root = 
     Project( id = "marvin"
            , base = file(".")
-           , settings = Defaults.defaultSettings ++ projectSettings ++ deploySettings
+           , settings = Defaults.defaultSettings ++ projectSettings
            ).settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
 
   lazy val projectSettings: List[Setting[_]] = 
-    List( organization := "com.atlassian.ecosystem"
+    List( organization := "purefn"
         , name := "marvin"
         , scalaVersion := versions.scala
         , scalacOptions ++= List("-unchecked", "-deprecation", "-Ydependent-method-types", "-Ywarn-value-discard")
-        , libraryDependencies := dependencies
-        , resolvers ++= resolvers_
+        , libraryDependencies ++= dependencies
+        , initialCommands in console := consoleInit
         )
 
   object versions {
-    val dispatch = "0.9.4"
-    val httpclient = "4.2.1"
-    val jetty = "8.0.4.v20111024"
     val scala = "2.9.2"
-    val scalaz = "7.0.0-M1"
-    val argonaut = "4.0"
+    val scalaz = "7.0.0-M2"
+    val smack = "3.2.1"
   }
 
   lazy val dependencies =
-    List( "com.ephox" %% "argonaut" % versions.argonaut intransitive()
-        , "org.scala-lang" % "scala-compiler" % versions.scala
-        , "org.slf4j" % "slf4j-simple" % "1.6.2"
+    List( "org.scala-lang" % "scala-compiler" % versions.scala
+        , "org.scalaz" %% "scalaz-concurrent" % versions.scalaz
+        , "org.igniterealtime.smack" % "smack" % versions.smack
+        , "org.igniterealtime.smack" % "smackx" % versions.smack
         )
 
-  lazy val resolvers_ = 
-    List( "mth.io snapshots"  at "http://repo.mth.io/snapshots"
-        , "mth.io releases"  at "http://repo.mth.io/releases"
-        )
-
-  lazy val deploySettings: Seq[Setting[_]] =
-    SbtStartScript.startScriptForClassesSettings ++
-    List( mainClass := Some("com.atlassian.ecosystem.marvin.Main")
-        )
+  lazy val consoleInit = """
+import scalaz._, Scalaz._
+import purefn.marvin._
+"""
 
 }
