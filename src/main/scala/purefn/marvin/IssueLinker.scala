@@ -9,10 +9,14 @@ import syntax.monad._
 
 object IssueLinker {
   def apply(config: Config): Kleisli[Option, Either[Command, Message], Promise[String]] = Kleisli {
-    def link(issueKey: String) = config.jiraBase + "browse/" + issueKey
-    val links = (msg: Message) => (for (id <- LINK_PATTERN findAllIn msg.body) yield link(id)).toList.distinct
+    val keys = (msg: Message) =>
+      LINK_PATTERN.findAllIn(msg.body).toList.distinct match {
+        case h :: t => Some(NonEmptyList(h, t:_*))
+        case Nil    => None
+      }
+    val links = (keys: NonEmptyList[String]) => keys.map(config.jiraBase + "browse/" + _)
 
-    _.right.toOption >>= (links ⋙ (_.mkString(", ")) ⋙ (Promise(_)) ⋙ (Some(_)))
+    _.right.toOption flatMap keys map (links ⋙ (_.list.mkString(", ")) ⋙ (Promise(_)))
   }
 
   // the constructed regex says to find issue keys:

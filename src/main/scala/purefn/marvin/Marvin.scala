@@ -2,6 +2,8 @@ package purefn.marvin
 
 import scalaz._
 import std.option._
+import std.string._
+import syntax.equal._
 import syntax.plus._
 
 import org.jivesoftware.smack._
@@ -32,8 +34,6 @@ object Marvin {
     val process = ScalaRepl(config) <+> IssueLinker(config) 
 
     val cc = new ConnectionConfiguration(config.host, config.port)
-    cc.setSASLAuthenticationEnabled(true)
-
     val c = new XMPPConnection(cc)
     c.connect()
     c.login(config.username, config.password, "marvin")
@@ -73,7 +73,7 @@ object Marvin {
           muc.sendMessage(msg)
         }
         def processPacket(p: Packet) = p match {
-          case m: XMessage => 
+          case m: XMessage if parseResource(m.getFrom) /== config.nick => 
             process.run(Right(mucMessage(m))) map (_ map reply)
             ()
           case _ => ()
@@ -86,5 +86,4 @@ object Marvin {
       c.disconnect()
     }
   }
-
 }
