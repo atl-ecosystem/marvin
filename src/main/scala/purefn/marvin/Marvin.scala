@@ -19,7 +19,8 @@ sealed case class Config
   , jiraBase: String
   , rooms: Set[String]
   , conferenceServer: String
-  , nick: String
+  , nick: String = "marvin"
+  , ignore: Set[String] = Set()
   )
 
 sealed trait Marvin {
@@ -72,8 +73,9 @@ object Marvin {
           msg.setBody(m.trim)
           muc.sendMessage(msg)
         }
+        val ignore = config.ignore ++ config.nick
         def processPacket(p: Packet) = p match {
-          case m: XMessage if parseResource(m.getFrom) /== config.nick => 
+          case m: XMessage if !ignore(parseResource(m.getFrom)) => 
             process.run(Right(mucMessage(m))) map (_ map reply)
             ()
           case _ => ()
