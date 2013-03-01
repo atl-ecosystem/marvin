@@ -4,16 +4,15 @@ import scalaz._
 import concurrent._
 import std.function._
 import std.option._
+import syntax.std.list._
 import syntax.compose._
 import syntax.monad._
 
 object IssueLinker {
-  def apply(config: Config): Kleisli[Option, Either[Command, Message], Promise[String]] = Kleisli {
-    val keys = (msg: Message) =>
-      LINK_PATTERN.findAllIn(msg.body).toList.distinct match {
-        case h :: t => Some(NonEmptyList(h, t:_*))
-        case Nil    => None
-      }
+  sealed case class Config(jiraBase: String)
+
+  def apply(config: Config): Processor = Kleisli {
+    val keys = (msg: Message) => LINK_PATTERN.findAllIn(msg.body).toList.distinct.toNel
     val links = (keys: NonEmptyList[String]) => keys.map(config.jiraBase + "browse/" + _)
 
     _.right.toOption flatMap keys map (links ⋙ (_.list.mkString(", ")) ⋙ (Promise(_)))
